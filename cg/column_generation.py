@@ -1,8 +1,8 @@
-from cg.master.Master import Master
-from cg.pricing.PricingProblem import PricingProblem
-from cg.ColumnPool import ColumnPool
-from ..model.ChargeProblem import ChargeProblem
-from ..Config import Config
+from cg.master.master_problem import Master
+from cg.pricing.pricing_problem import PricingProblem
+from cg.column_pool import ColumnPool
+from ..model.charge_problem import ChargeProblem
+from ..config import Config
 import time
 import math
 class ColGen:

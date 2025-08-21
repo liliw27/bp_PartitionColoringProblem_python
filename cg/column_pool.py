@@ -1,5 +1,5 @@
 from IndependentSet import column_independent_set
-from cg.pricing.PricingProblem import PricingProblem
+from cg.pricing.pricing_problem import PricingProblem
 from bidict import bidict
 import gurobipy as gp
 

@@ -2,30 +2,7 @@ class Edge:
     def __init__(self, source, target, weight=1.0):
         self.source = source
         self.target = target
-        self.weight = weight
         
-        # Add each vertex to the other's adjacent vertices
-        source.add_adjacent_vertex(target)
-        target.add_adjacent_vertex(source)
-    
-    def get_source(self):
-        """
-        Gets the source vertex of the edge
-        
-        Returns:
-            Vertex: The source vertex
-        """
-        return self.source
-    
-    def get_target(self):
-        """
-        Gets the target vertex of the edge
-        
-        Returns:
-            Vertex: The target vertex
-        """
-        return self.target
-    
     def __eq__(self, other):
         if not isinstance(other, Edge):
             return False

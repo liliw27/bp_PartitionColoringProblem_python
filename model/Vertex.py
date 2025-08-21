@@ -1,6 +1,6 @@
 from typing import Set
 
-from model.Partition import Partition
+from model.partition import Partition
 
 
 class Vertex:

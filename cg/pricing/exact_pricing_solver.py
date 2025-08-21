@@ -1,10 +1,10 @@
-from PricingProblem import PricingProblem
+from pricing_problem import pricing_problem
 from ...model import ChargeProblem
-from ...bpc.branching.BranchingDecision import BranchingDecision
-class PricingProblemSolver:
+from ...bpc.branching.branching_decision import BranchingDecision
+class pricing_problem_solver:
     solution=None
 
-    def __init__(self,data_model:ChargeProblem, pricing_problem: PricingProblem):
+    def __init__(self,data_model:ChargeProblem, pricing_problem: pricing_problem):
         self.pricing_problem = pricing_problem
 
     def buildModel(self):

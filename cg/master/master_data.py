@@ -1,4 +1,4 @@
-from cg.pricing.PricingProblem import PricingProblem
+from cg.pricing.pricing_problem import PricingProblem
 from bidict import bidict
 from cg.IndependentSet import column_independent_set
 import gurobipy as gp
