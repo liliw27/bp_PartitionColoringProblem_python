@@ -1,6 +1,7 @@
-from ...model import ChargeProblem
-from ...bpc.branching.branching_decision import BranchingDecision
 from typing import List
+from model.a_graph import AuxiliaryGraph
+from bpc.branching.branching_decision import BranchingDecision
+
 
 """
 This module contains the PricingProblem class which represents a pricing problem in column generation.
@@ -8,20 +9,18 @@ The pricing problem is responsible for generating new columns (independent sets)
 It maintains the dual costs from the master problem and handles branching decisions.
 """
 
-class pricing_problem:
-    def __init__(self, data_model: ChargeProblem, name : str,dualcosts:dict):
-        self.data_model = data_model
+class PricingProblem:
+    def __init__(self, auxiliary_graph: AuxiliaryGraph, name : str,dualcosts:List):
+        self.auxiliary_graph = auxiliary_graph
         self.name = name
         self.dualcosts = dualcosts
     
-    # def initPricingProblem(self,dualcosts):
-    #     self.dualcosts = dualcosts
+    def update_pricing_problem(self,dualcosts):
+        self.dualcosts = dualcosts
+        self.auxiliary_graph.update_weightf(dualcosts)
 
     def branchingDecisionPerformed(self,branchingDecision:BranchingDecision):
         pass
-    
-    def update_dual(self,dual:List[float]):
-        self.dualcosts=dual
 
     def __str__(self):
         return f"PricingProblem(name={self.name})"

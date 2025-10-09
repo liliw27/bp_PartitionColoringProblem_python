@@ -2,11 +2,11 @@ from typing import Set
 
 
 class Partition:
-    def __init__(self, id: int, vetex_set: Set):
+    def __init__(self, id: int, vertex_set: Set):
         """Initialize a Partition object
 
         Args:
-            vetex_set: Set of vertices in the partition
+            vertex_set: Set of vertices in the partition
         """
         self.id = id
-        self.vetex_set = vetex_set
+        self.vertex_set = vertex_set

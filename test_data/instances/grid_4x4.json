@@ -1,0 +1,267 @@
+{
+  "name": "grid_4x4",
+  "num_vertices": 16,
+  "num_partitions": 4,
+  "vertices": [
+    {
+      "id": 0,
+      "partition_id": 0,
+      "data": "grid_0_0"
+    },
+    {
+      "id": 1,
+      "partition_id": 0,
+      "data": "grid_0_1"
+    },
+    {
+      "id": 2,
+      "partition_id": 0,
+      "data": "grid_0_2"
+    },
+    {
+      "id": 3,
+      "partition_id": 0,
+      "data": "grid_0_3"
+    },
+    {
+      "id": 4,
+      "partition_id": 1,
+      "data": "grid_1_0"
+    },
+    {
+      "id": 5,
+      "partition_id": 1,
+      "data": "grid_1_1"
+    },
+    {
+      "id": 6,
+      "partition_id": 1,
+      "data": "grid_1_2"
+    },
+    {
+      "id": 7,
+      "partition_id": 1,
+      "data": "grid_1_3"
+    },
+    {
+      "id": 8,
+      "partition_id": 2,
+      "data": "grid_2_0"
+    },
+    {
+      "id": 9,
+      "partition_id": 2,
+      "data": "grid_2_1"
+    },
+    {
+      "id": 10,
+      "partition_id": 2,
+      "data": "grid_2_2"
+    },
+    {
+      "id": 11,
+      "partition_id": 2,
+      "data": "grid_2_3"
+    },
+    {
+      "id": 12,
+      "partition_id": 3,
+      "data": "grid_3_0"
+    },
+    {
+      "id": 13,
+      "partition_id": 3,
+      "data": "grid_3_1"
+    },
+    {
+      "id": 14,
+      "partition_id": 3,
+      "data": "grid_3_2"
+    },
+    {
+      "id": 15,
+      "partition_id": 3,
+      "data": "grid_3_3"
+    }
+  ],
+  "edges": [
+    {
+      "source": 0,
+      "target": 1,
+      "weight": 1.0
+    },
+    {
+      "source": 0,
+      "target": 4,
+      "weight": 1.0
+    },
+    {
+      "source": 1,
+      "target": 2,
+      "weight": 1.0
+    },
+    {
+      "source": 1,
+      "target": 5,
+      "weight": 1.0
+    },
+    {
+      "source": 2,
+      "target": 3,
+      "weight": 1.0
+    },
+    {
+      "source": 2,
+      "target": 6,
+      "weight": 1.0
+    },
+    {
+      "source": 3,
+      "target": 7,
+      "weight": 1.0
+    },
+    {
+      "source": 4,
+      "target": 5,
+      "weight": 1.0
+    },
+    {
+      "source": 4,
+      "target": 8,
+      "weight": 1.0
+    },
+    {
+      "source": 5,
+      "target": 6,
+      "weight": 1.0
+    },
+    {
+      "source": 5,
+      "target": 9,
+      "weight": 1.0
+    },
+    {
+      "source": 6,
+      "target": 7,
+      "weight": 1.0
+    },
+    {
+      "source": 6,
+      "target": 10,
+      "weight": 1.0
+    },
+    {
+      "source": 7,
+      "target": 11,
+      "weight": 1.0
+    },
+    {
+      "source": 8,
+      "target": 9,
+      "weight": 1.0
+    },
+    {
+      "source": 8,
+      "target": 12,
+      "weight": 1.0
+    },
+    {
+      "source": 9,
+      "target": 10,
+      "weight": 1.0
+    },
+    {
+      "source": 9,
+      "target": 13,
+      "weight": 1.0
+    },
+    {
+      "source": 10,
+      "target": 11,
+      "weight": 1.0
+    },
+    {
+      "source": 10,
+      "target": 14,
+      "weight": 1.0
+    },
+    {
+      "source": 11,
+      "target": 15,
+      "weight": 1.0
+    },
+    {
+      "source": 12,
+      "target": 13,
+      "weight": 1.0
+    },
+    {
+      "source": 13,
+      "target": 14,
+      "weight": 1.0
+    },
+    {
+      "source": 14,
+      "target": 15,
+      "weight": 1.0
+    }
+  ],
+  "partitions": [
+    {
+      "id": 0,
+      "vertex_ids": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 1,
+      "vertex_ids": [
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "id": 2,
+      "vertex_ids": [
+        8,
+        9,
+        10,
+        11
+      ]
+    },
+    {
+      "id": 3,
+      "vertex_ids": [
+        12,
+        13,
+        14,
+        15
+      ]
+    }
+  ],
+  "chargers": [
+    {
+      "id": 0,
+      "max_charging_time": 47.529203770142644
+    },
+    {
+      "id": 1,
+      "max_charging_time": 55.088321944762505
+    },
+    {
+      "id": 2,
+      "max_charging_time": 49.4703764082444
+    },
+    {
+      "id": 3,
+      "max_charging_time": 56.98681864520081
+    }
+  ],
+  "optimal_colors": 2,
+  "description": "Grid PCP instance 4x4 with partition size 4"
+}
