@@ -5,8 +5,17 @@ import gurobipy as grb
 from typing import Dict
 from model.a_graph import AuxiliaryGraph
 import time
+import os
 
 class ExactPricingSolver:
+    """
+    精确定价求解器：基于当前辅助图与对偶信息，求解带冲突约束的最大权稳定集，
+    以此生成 reduced cost 为负的列（独立集）。
+
+    - build_model: 搭建子问题模型（二进制变量、冲突约束、目标）。
+    - set_objective/solve: 设置目标并调用 Gurobi 求解（支持解池）。
+    - generate_columns: 从解池提取解，构造列，并可在调试模式下校验 reduced cost。
+    """
     solution = None
 
     def __init__(
@@ -17,13 +26,20 @@ class ExactPricingSolver:
         self.model = grb.Model("sub")
         self.vars: Dict[int, grb.Var] = {}
         self.cons = {}
-        self.pool_sol_num = 5
+        self.pool_sol_num = 10
         self.build_model()
         self.dual = pricing_problem.dualcosts
+        # 调试模式：设置环境变量 BPC_DEBUG=1 启用断言校验
+        self.debug = bool(int(os.getenv("BPC_DEBUG", "0")))
 
     def build_model(self):
+        """构建子问题模型：二进制变量、冲突约束、最小化形式目标。
+
+        注意：模型初始目标设置为最小化 1 - Σw_v x_v；在生成列时会切换为
+        最大化 Σw_v x_v（以便直接使用解池目标值）。
+        """
         # 决策变量
-        for v in self.auxiliary_graph.vertices:
+        for v in self.auxiliary_graph.vertices_map.values():
             self.vars[v.id] = self.model.addVar(vtype=grb.GRB.BINARY, name=f"x_{v.id}")
 
         # 约束条件
@@ -39,12 +55,17 @@ class ExactPricingSolver:
 
         obj_expr += sum(
             self.auxiliary_graph.weight_v[v.id] * self.vars[v.id]
-            for v in self.auxiliary_graph.vertices
+            for v in self.auxiliary_graph.vertices_map.values()
         )
 
         self.model.setObjective(1 - obj_expr, grb.GRB.MINIMIZE)
 
     def solve(self,time_end:int):
+        """求解子问题：启用解池并设置时间限制。
+
+        Args:
+            time_end: 统一的结束时间戳（与主控共享），用于计算剩余时间。
+        """
         # 设置 model 参数：使用解池存储多个可行解
         self.model.setParam("PoolSearchMode", 2)  # 系统搜索多个解
         self.model.setParam("PoolSolutions", self.pool_sol_num)  # 最大存储解数量
@@ -59,21 +80,27 @@ class ExactPricingSolver:
         self.model.optimize()
 
     def set_objective(self):
+        """将子问题目标切换为最大化 Σw_v x_v（便于从解池读取）。"""
         obj_expr = grb.LinExpr()
         obj_expr += sum(
             self.auxiliary_graph.weight_v[v.id] * self.vars[v.id]
-            for v in self.auxiliary_graph.vertices
+            for v in self.auxiliary_graph.vertices_map.values()
         )
         self.model.setObjective(obj_expr, grb.GRB.MAXIMIZE)
 
     def generate_columns(self,time_end:int):
+        """生成列：从解池提取可用解并构造独立集列。
+
+        仅保留满足 reduced cost 条件的列；在调试模式下，断言校验子问题
+        报告的 reduced cost 与手动计算一致。
+        """
         # 设置目标函数
         self.set_objective()
 
         # 构建和求解子问题
         self.solve(time_end)
 
-        # 处理解池中的解，获取reduced cost < 0的多个可行列
+        # 处理解池中的解，获取 reduced cost < 0 的多个可行列
         columns = []
 
         # 检查是否有解
@@ -91,19 +118,19 @@ class ExactPricingSolver:
             # 获取当前解的目标值
             obj_val = self.model.PoolObjVal
 
-            # 只考虑减少成本为负的解
+            # 只考虑 reduced cost < 0 的解（等价于目标值充足大）
             if obj_val < 1.0+1e-6:  # 考虑数值误差
                 continue
 
             # 提取稳定集（值为1的节点）
-            stable_set = set()
+            stable_set_list = []
             for v, var in self.vars.items():
                 if abs(var.Xn - 1.0) < 1e-6:  # 检查是否为1
-                    stable_set.add(self.auxiliary_graph.vertices_map[v])
+                    stable_set_list.append(self.auxiliary_graph.vertices_map[v])
 
             # 创建列对象
             new_column = ColumnIndependentSet(
-                vertex_set=stable_set,
+                vertex_list=stable_set_list,
                 value=1,
                 associated_pricing_problem=self.pricing_problem,
                 is_artificial=False,
@@ -112,22 +139,11 @@ class ExactPricingSolver:
 
             columns.append(new_column)
 
-            # 手动计算 reduced cost
-            self._update_dual()
-            manual_rc = self._calculate_reduced_cost(new_column)
-
-            # print(f"**** Column={new_column.stable_set}, calculate reduced cost={manual_rc} ****")
-
-            # 验证 reduced cost 一致性
-            if abs((1.0-obj_val) - manual_rc) > 1e-5:
-                raise RuntimeError(
-                    f"Reduced cost 不一致: "
-                    f"子问题报告={obj_val:.6f}, "
-                    f"手动计算={manual_rc:.6f}, "
-                    f"差异={abs(obj_val - manual_rc):.6f}"
-                )
+            # 断言校验：将校验逻辑与主流程解耦
+            self._assert_reduced_cost_consistency(obj_val, new_column)
         return columns
     def _update_dual(self):
+        """从定价问题对象中同步对偶值。"""
         self.dual = self.pricing_problem.dualcosts
     def _calculate_reduced_cost(self, column: ColumnIndependentSet) -> float:
         """
@@ -136,13 +152,32 @@ class ExactPricingSolver:
         :return:
         """
         dual_contrib = 0
-        for v in column.vertex_set:
-            vertex=self.auxiliary_graph.vertices[v]
+        for v in column.vertex_list:
+            vertex=self.auxiliary_graph.vertices_map[v.id]
             dual_contrib += self.dual[vertex.associated_partition.id]
         rc = 1.0 - dual_contrib
 
         # 根据数学模型计算 reduced cost
         return rc
+
+    def _assert_reduced_cost_consistency(self, pool_obj_val: float, column: ColumnIndependentSet) -> None:
+        """断言子问题报告的 reduced cost 与手动计算一致。
+
+        Args:
+            pool_obj_val: 解池中该列对应的目标值
+            column: 列（独立集）对象
+        """
+        if not self.debug:
+            return
+        self._update_dual()
+        manual_rc = self._calculate_reduced_cost(column)
+        diff = abs((1.0 - pool_obj_val) - manual_rc)
+        assert diff <= 1e-5, (
+            f"Reduced cost 不一致: "
+            f"子问题报告={pool_obj_val:.6f}, "
+            f"手动计算={manual_rc:.6f}, "
+            f"差异={diff:.6f}"
+        )
 
     def branchPerformed(self, branchingDecision: BranchingDecision):
         pass

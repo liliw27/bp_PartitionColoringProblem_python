@@ -12,8 +12,10 @@ class AuxiliaryGraph:
     辅助图类
     
     在分支定价算法中，辅助图用于定价问题的求解。
-    它在原图的基础上添加了同分区内顶点间的边，
-    确保每个分区最多选择一个顶点。
+    它在原图的基础上添加了同分区内顶点间的边，确保每个分区最多选择一个顶点。
+    支持两类关键操作：
+    - same_color: 合并顶点，使其在模型中共享同一颜色/选择状态；
+    - different_color: 在两顶点间添加边，禁止同时选择。
     """
     
     def __init__(self, 
@@ -31,22 +33,22 @@ class AuxiliaryGraph:
             merged_vertices_map: 合并顶点映射，用于分支操作
         """
         self.graph = graph
-        
-        if auxiliary_edges is None:
-            self.auxiliary_edges = graph.edges.copy()
-            self._get_auxiliary_edges()
-        else:
-            self.auxiliary_edges = auxiliary_edges
-            
+
         if merged_vertices_map is None:
             self.merged_vertices_map = {}
         else:
             self.merged_vertices_map = merged_vertices_map
         
         self.vertices_map = vertices_map.copy()
+        
+        if auxiliary_edges is None:
+            self.auxiliary_edges = graph.edges.copy()
+            self._get_auxiliary_edges()
+        else:
+            self.auxiliary_edges = auxiliary_edges
         # 初始化权重字典，使用顶点ID作为键
         self.weight_v = {v.id: 0.0 for v in vertices_map.values()}
-    
+
     def _get_auxiliary_edges(self):
         """
         生成辅助边（同一分区内顶点间的边）
@@ -82,12 +84,14 @@ class AuxiliaryGraph:
         更新顶点权重
         
         根据主问题的对偶变量更新顶点权重，用于定价问题的目标函数。
+        普通顶点直接使用其分区对应的对偶值；合并顶点使用其包含
+        的所有原始顶点权重之和。
         
         Args:
             dual: 主问题的对偶变量列表
         """
         # 更新普通顶点的权重
-        for vertex in self.vertices_map.values():
+        for vertex in self.graph.vertices:
             self.weight_v[vertex.id] = dual[vertex.associated_partition.id]
             
         # 更新合并顶点的权重
@@ -111,12 +115,12 @@ class AuxiliaryGraph:
         
         if vertex in self.merged_vertices_map.keys():
             # 如果是合并顶点，移除不在合并集合中的其他顶点
-            for v in self.graph.partitions[vertex.associated_partition.id].vertex_set:
+            for v in self.graph.partitions[vertex.associated_partition.id].vertex_list:
                 if v not in self.merged_vertices_map[vertex]:
                     removed_vertices.append(v)
         else:
             # 普通顶点，移除同分区的其他所有顶点
-            for v in self.graph.partitions[vertex.associated_partition.id].vertex_set:
+            for v in self.graph.partitions[vertex.associated_partition.id].vertex_list:
                 if v != vertex:
                     removed_vertices.append(v)
         
@@ -129,6 +133,7 @@ class AuxiliaryGraph:
         从辅助图中移除指定顶点
         
         移除顶点及其相关的所有边和权重信息。
+        若为合并顶点，则移除其包含的所有原始顶点及相关边。
         
         Args:
             vertex: 要移除的顶点
@@ -137,32 +142,32 @@ class AuxiliaryGraph:
             # 移除合并顶点及其包含的所有顶点
             for v in self.merged_vertices_map[vertex]:
                 if v.id in self.vertices_map:
-                    self.vertices_map.pop(v.id)
+                    del self.vertices_map[v.id]
                 if v.id in self.weight_v:
-                    self.weight_v.pop(v.id)
+                    del self.weight_v[v.id]
                 self.auxiliary_edges = [
                     e for e in self.auxiliary_edges 
                     if e.source != v and e.target != v
                 ]
             # 移除合并顶点本身
-            self.merged_vertices_map.pop(vertex)
+            del self.merged_vertices_map[vertex]
         else:
             # 移除普通顶点
             if vertex.id in self.vertices_map:
-                self.vertices_map.pop(vertex.id)
+                del self.vertices_map[vertex.id]
             if vertex.id in self.weight_v:
-                self.weight_v.pop(vertex.id)
+                del self.weight_v[vertex.id]
             self.auxiliary_edges = [
                 e for e in self.auxiliary_edges 
                 if e.source != vertex and e.target != vertex
             ]
-    
+            # print(len(self.vertices_map), sorted(self.vertices_map.keys()))
     def same_color(self, vertex_v: Vertex, vertex_u: Vertex):
         """
         强制两个顶点使用相同颜色
         
-        创建一个新的合并顶点来代表这两个顶点，
-        并更新所有相关的边。
+        创建一个新的合并顶点来代表这两个顶点，并更新所有相关的边。
+        新的合并顶点会记录其包含的原始顶点，供后续操作（如权重、移除）使用。
         
         Args:
             vertex_v: 第一个顶点
@@ -210,4 +215,11 @@ class AuxiliaryGraph:
         
         if not edge_exists:
             self.auxiliary_edges.append(new_edge)
-        
+    
+    def copy(self):
+        return AuxiliaryGraph(
+            graph=self.graph,
+            vertices_map=self.vertices_map.copy(),
+            auxiliary_edges=self.auxiliary_edges.copy(),
+            merged_vertices_map=self.merged_vertices_map.copy()
+        )

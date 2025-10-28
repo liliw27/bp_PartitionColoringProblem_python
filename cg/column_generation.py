@@ -2,7 +2,7 @@ from cg.master.master_problem import MasterProblem
 from cg.pricing.pricing_problem import PricingProblem
 from cg.pricing.exact_pricing_solver import ExactPricingSolver
 from cg.column_pool import ColumnPool
-from config import config
+from config import Config
 
 import time
 import math
@@ -11,6 +11,14 @@ from cg.column_independent_set import ColumnIndependentSet
 
 
 class ColumnGeneration:
+    """
+    列生成主流程控制器：在主问题与子问题之间迭代，持续引入具有负 reduced cost 的列，
+    直到满足终止条件（收敛或界限达到）。
+
+    - invokeMaster: 将新列加入 RMP，求解主问题并获取对偶与目标值；
+    - invokePricing: 用对偶更新定价问题，求解并返回新列；
+    - check_termination: 依据上下界与容差判断是否停止迭代。
+    """
     def __init__(
         self,
         master: MasterProblem,
@@ -34,7 +42,9 @@ class ColumnGeneration:
         self.iteration = 0
         self.solution = None
         self.new_columns = []
+        self.config = Config()
     def solve(self, time_end: int):
+        """执行列生成迭代直至终止，返回解与主问题目标值。"""
         foundNewColumn = True
         self.new_columns = self.column_pool.columns
         while foundNewColumn:
@@ -52,19 +62,21 @@ class ColumnGeneration:
         return self.solution,self.masterObjective
     
     def check_termination(self):
+        """终止判定：上界已达到或上下界在容差内收敛。"""
         if (
-                math.ceil(self.masterObjective - config.epsilon)
+                math.ceil(self.masterObjective - self.config.epsilon)
                 >= self.upper_bound
             ):
                 return True
             
         if (
                 abs(self.masterObjective - self.lower_bound)
-                < config.epsilon
+                < self.config.epsilon
             ):
                 return True
             
     def invokeMaster(self,new_columns:List[ColumnIndependentSet], time_end: int):
+        """将新列加入 RMP 并求解主问题，更新对偶与目标值。"""
         c_time = time.time()
         for column in new_columns:
             self.master.add_column_to_rmp(column)
@@ -75,7 +87,7 @@ class ColumnGeneration:
         self.dual = duals
     
     def invokePricing(self, time_end: int, dual: List[float]):
-        
+        """用对偶更新定价问题并求解，返回新生成的列集合。"""
         c_time = time.time()
         self.pricing_problem.update_pricing_problem(dual)
         new_columns = self.pricing_solver.generate_columns(time_end)
