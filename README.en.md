@@ -4,7 +4,7 @@ This repository implements a Branch-and-Price framework for the Partition Colori
 
 ## Features
 - Master problem: modeled in Gurobi; supports exporting LP for debugging
-- Pricing: exact pricing solver (maximum weight stable set) with solution pool and reduced-cost assertion (`BPC_DEBUG=1`)
+- Pricing: exact pricing solver (maximum weight stable set) 
 - Column generation: iteratively introduces columns with negative reduced cost based on duals
 - Branching: supports imposed vertex, forbid vertex, same-color and different-color branching rules
 
