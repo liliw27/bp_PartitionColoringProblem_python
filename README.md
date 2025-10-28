@@ -12,6 +12,16 @@
 - Python 3.8+
 - Gurobi 10.x（已配置 license）
 
+## 依赖安装
+- 使用 pip（需先配置好 Gurobi 许可）：
+```bash
+pip install gurobipy
+```
+- 或使用 conda：
+```bash
+conda install -c gurobi gurobi
+```
+
 ## 数据
 - 测试数据位于 `data/Table2_random_instances/*.pcp`
 - `test/pcp_reader.py` 提供 `.pcp` 读取与图构建
