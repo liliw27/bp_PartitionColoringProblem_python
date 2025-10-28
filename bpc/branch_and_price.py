@@ -4,7 +4,6 @@
 import heapq
 from typing import List, Optional, Dict, Any
 from model.a_graph import AuxiliaryGraph
-from bpc.branching.branching_decision import BranchingDecision
 from bpc.bpc_node import BPCNode
 from cg.column_generation import ColumnGeneration
 from cg.pricing.pricing_problem import PricingProblem
@@ -44,7 +43,7 @@ class BranchAndPrice:
         self.best_objective: float = float('inf')  # 上界
         self.global_lower_bound: float = float('-inf')  # 全局下界
         self.optimal: bool = False
-        
+        self.current_node: Optional[BPCNode] = None
         # 统计信息
         self.nodes_processed: int = 0
         self.nodes_created: int = 0
@@ -70,58 +69,61 @@ class BranchAndPrice:
         # 生成并添加根节点
         root_node = self.generate_root_node()
         self.add_node(root_node)
+        path=[]
         print(f"根节点已添加: ID={root_node.nodeid}")
         try:
             while not self.is_queue_empty():
                 # 获取下一个要处理的节点
-                current_node = self.get_next_node()
+                self.current_node = self.get_next_node()
                 self.nodes_processed += 1
                 
-                print(f"\n处理节点 {current_node.nodeid}: 下界={current_node.objective_value:.4f}")
+                print(f"\n处理节点 {self.current_node.nodeid}")
                 
                 # 1. 检查是否可以剪枝，如果当前节点下界大于等于全局上界，则剪枝
-                if self.is_prunable_node(current_node):
+                if self.is_prunable_node(self.current_node):
                     continue
                 
                 # 2. 求解当前节点的线性松弛问题（列生成）
-                if not self.process_node(current_node, time_end):
-                    self.add_node(current_node)
+                if not self.process_node(self.current_node, time_end):
+                    self.add_node(self.current_node)
                     break  # 如果时间超限，则跳出循环
-                    
-                print(f"  列生成求解结果: 目标值={current_node.objective_value:.4f}")
-                
+                path.append(self.current_node.nodeid)
+                print(f"  搜索路径: {path}")
+                print(f"  列生成求解结果: 目标值={self.current_node.objective_value:.4f}， 下界={self.global_lower_bound:.4f}， 上界={self.best_objective:.4f}")
+             
                 # 3. 再次检查剪枝条件（求解后目标值可能改变）
-                if self.is_prunable_node(current_node):
+                if self.is_prunable_node(self.current_node):
                     continue
                     
                 # 4. 检查是否不可行，如果解中存在人工列，则剪枝
-                if self.is_infeasible_solution(current_node):
+                if self.is_infeasible_solution(self.current_node):
                     print("  剪枝: 解中存在人工列")
                     self.nodes_pruned += 1
                     continue
                     
                 # 5. 检查解的整数性
-                if self.is_integer_solution(current_node.solution):
+                if self.is_integer_solution(self.current_node.solution):
                     # 如果是整数解，更新最优解
                     print("  找到整数解，更新最优解")
-                    self.update_best_solution(current_node.objective_value, current_node.solution)
+                    self.update_best_solution(self.current_node.objective_value, self.current_node.solution)
                     continue
                 else:
                     # 如果不是整数解，进行分支
                     print("  解不是整数，开始分支...")
-                    self.branch_node(current_node)
+                    self.branch_node(self.current_node)
                 
-                # # 更新全局下界
-                # active_nodes_bounds = [node.objective_value for node in self.node_queue]
-                # if active_nodes_bounds:
-                #     self.global_lower_bound = min(active_nodes_bounds)
+                # 更新全局下界
+                active_nodes_bounds = [node.objective_value for node in self.node_queue]
+                if active_nodes_bounds:
+                    self.global_lower_bound = min(active_nodes_bounds)
                                     
                 # 每处理一定数量的节点输出进度
                 if self.nodes_processed % 10 == 0:
                     stats = self.get_statistics()
                     print(f"  进度: 已处理 {stats['nodes_processed']} 个节点, "
                           f"剩余 {stats['nodes_remaining']} 个, "
-                          f"当前最优 {stats['best_objective']:.4f}")
+                          f"当前最优 {stats['best_objective']:.4f}, "
+                          f"当前列数: {stats['column_num']}")
             
             self.total_solve_time = time.time() - start_time
             
@@ -147,9 +149,10 @@ class BranchAndPrice:
                 "solution": self.best_solution,
                 "statistics": stats
             }
-            
         except Exception as e:
             self.total_solve_time = time.time() - start_time
+            import traceback
+            traceback.print_exc()
             print(f"求解过程中出现错误: {e}")
             return {
                 "status": "error",
@@ -174,6 +177,7 @@ class BranchAndPrice:
         print(f"  创建了 {len(branches)} 个分支")
         for i, branch in enumerate(branches):
             # 复制当前节点的图和列池
+            
             a_graph = current_node.a_graph.copy()
             branch.a_graph_update(a_graph)
             
@@ -292,7 +296,7 @@ class BranchAndPrice:
             parent=None, 
             a_graph=a_graph, 
             column_pool=root_column_pool, 
-            objective_value=float('-inf'),  # 根节点下界设为负无穷
+            objective_value=0,  # 根节点下界设为负无穷
             solution={}
         )
     
@@ -327,10 +331,10 @@ class BranchAndPrice:
         
         for partition in self.graph.partitions:
             # 为每个分区中的每个顶点创建单顶点人工列
-            vertex=self.graph.vertex_map[partition.vertex_set[0]]
+            vertex = partition.vertex_list[0]
             
             artificial_column = ColumnIndependentSet(
-                vertex_set={vertex},
+                vertex_list=[vertex],
                 associated_pricing_problem="artificial",
                 is_artificial=True,
                 creator="artificial_initialization",
@@ -365,16 +369,6 @@ class BranchAndPrice:
                     return False
             
         return True
-    
-    def update_cg_solver(self, node: BPCNode) -> None:
-        """
-        更新列生成求解器（预留方法）
-        
-        Args:
-            node: 当前节点
-        """
-        # TODO: 如果需要重用列生成求解器，在这里更新
-        pass
     
     def add_node(self, node: BPCNode) -> None:
         """
@@ -473,6 +467,11 @@ class BranchAndPrice:
         Returns:
             统计信息字典
         """
+        column_num=0
+        for column in self.current_node.solution.keys():
+            column_num=column._next_column_id
+            break
+    
         return {
             "nodes_processed": self.nodes_processed,
             "nodes_created": self.nodes_created,
@@ -481,5 +480,8 @@ class BranchAndPrice:
             "best_objective": self.best_objective,
             "global_lower_bound": self.global_lower_bound,
             "gap": (self.best_objective - self.global_lower_bound) / max(abs(self.best_objective), 1e-6),
-            "total_solve_time": self.total_solve_time
+            "total_solve_time": self.total_solve_time,
+            
+            
+            "column_num":column_num
         }

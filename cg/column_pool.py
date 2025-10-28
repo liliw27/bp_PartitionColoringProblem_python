@@ -9,6 +9,11 @@ class ColumnPool:
 
     def removeColumn(self,column: ColumnIndependentSet):
         self.columns.remove(column)
+        
+    def copy(self):
+        column_pool=ColumnPool()
+        column_pool.columns=self.columns.copy()
+        return column_pool
     
 
     

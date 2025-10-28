@@ -1,15 +1,14 @@
-from typing import Set
-
 from model.partition import Partition
-
 
 class Vertex:
      # 类级别的计数器，用于生成唯一的列ID
-    _next_vertex_id = 1
-    def __init__(self, associated_partition:Partition=None):
+    _next_vertex_id = 0
+    def __init__(self):
         self.id = Vertex._next_vertex_id
         Vertex._next_vertex_id += 1
-        self.associated_partition=associated_partition
+        
+    def set_associated_partition(self, partition:Partition):
+        self.associated_partition = partition
     
     def __eq__(self, other):
         if not isinstance(other, Vertex):
@@ -20,6 +19,8 @@ class Vertex:
         return hash(self.id)
     
     def __str__(self):
-        return f"Vertex(id={self.id}, data={self.data})"
+        return f"Vertex(id={self.id})"
+    def __repr__(self):
+        return f"Vertex(id={self.id})"
     
     

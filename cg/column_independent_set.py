@@ -1,5 +1,5 @@
 from model.vertex import Vertex
-
+from typing import List
 
 class ColumnIndependentSet:
     """
@@ -12,7 +12,7 @@ class ColumnIndependentSet:
     # 类级别的计数器，用于生成唯一的列ID
     _next_column_id = 1
     
-    def __init__(self, vertex_set, associated_pricing_problem, is_artificial, creator, value=0.0):
+    def __init__(self, vertex_list:List[Vertex], associated_pricing_problem, is_artificial, creator, value=0.0):
         """
         Constructs a new independent set
         
@@ -22,7 +22,7 @@ class ColumnIndependentSet:
             is_artificial (bool): Is this an artificial independent set?
             creator (str): Who/What created this independent set?
         """
-        self.vertex_set = vertex_set  # The set of vertices in this independent set
+        self.vertex_list = vertex_list  # The set of vertices in this independent set
         self.value = value  # The value of the independent set assigned to it by the last master problem solved
         self.is_artificial_column = is_artificial  # Indicates whether this is a real independent set or artificial
         self.creator = creator  # Textual description of the method which created this independent set
@@ -38,7 +38,7 @@ class ColumnIndependentSet:
     
     def _generate_readable_name(self):
         """生成可读的列名称"""
-        vertex_str = "-".join(sorted([str(v.id) for v in self.vertex_set]))
+        vertex_str = "-".join(sorted([str(v.id) for v in self.vertex_list]))
         prefix = "ART" if self.is_artificial_column else "COL"
         return f"{prefix}_{vertex_str}_{self.columnid}"
     
@@ -59,7 +59,7 @@ class ColumnIndependentSet:
         """
         if not isinstance(other, ColumnIndependentSet):
             return False
-        return (self.vertex_set == other.vertex_set and
+        return (self.vertex_list == other.vertex_list and
                 self.is_artificial_column == other.is_artificial_column and
                 self.creator == other.creator and
                 self.associated_pricing_problem == other.associated_pricing_problem)
@@ -71,7 +71,7 @@ class ColumnIndependentSet:
         Returns:
             int: Hash code for the independent set
         """
-        return hash((frozenset(self.vertex_set), self.is_artificial_column, self.creator, self.associated_pricing_problem))
+        return hash(self.columnid)
     
     def __str__(self):
         """
@@ -80,8 +80,10 @@ class ColumnIndependentSet:
         Returns:
             str: String representation of the independent set
         """
-        return f"{self.readable_name}(vertices={self.vertex_set}, value={self.value:.4f})"
+        vertex_ids = [vertex.id for vertex in self.vertex_list]
+        return f"{self.readable_name}(vertices={vertex_ids})"
     
     def __repr__(self):
         """详细的字符串表示"""
-        return f"ColumnIndependentSet(id={self.columnid}, vertices={self.vertex_set}, creator={self.creator}, is_artificial={self.is_artificial_column}, value={self.value})"
+        vertex_ids = [vertex.id for vertex in self.vertex_list]
+        return f"ColumnIndependentSet(id={self.columnid}, vertices={vertex_ids},is_artificial={self.is_artificial_column})"
