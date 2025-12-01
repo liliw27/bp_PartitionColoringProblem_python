@@ -6,7 +6,7 @@ from config import Config
 
 import time
 import math
-from typing import List
+from typing import List, Dict
 from cg.column_independent_set import ColumnIndependentSet
 
 
@@ -36,7 +36,7 @@ class ColumnGeneration:
         self.lower_bound = lower_bound
         self.lower_bound = 0.0
         self.masterSolveTime = 0
-        self.dual: List[float] = []
+        self.dual: Dict = {}  # {'partition': {...}, 'makespan': {...}}
         self.pricingSolveTime = 0
         self.masterObjective = 0.0
         self.iteration = 0
@@ -86,7 +86,7 @@ class ColumnGeneration:
         self.masterObjective = obj_val
         self.dual = duals
     
-    def invokePricing(self, time_end: int, dual: List[float]):
+    def invokePricing(self, time_end: int, dual: Dict):
         """用对偶更新定价问题并求解，返回新生成的列集合。"""
         c_time = time.time()
         self.pricing_problem.update_pricing_problem(dual)

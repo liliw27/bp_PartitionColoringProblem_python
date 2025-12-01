@@ -209,7 +209,7 @@ class BranchAndPrice:
         print("  开始列生成求解...")
         
         # 创建求解组件
-        pricing_problem = PricingProblem(auxiliary_graph=current_node.a_graph, name="main_pricing", dualcosts=[])
+        pricing_problem = PricingProblem(auxiliary_graph=current_node.a_graph, name="main_pricing", dual={})
         master_problem = MasterProblem(graph=self.graph, pricing_problem=pricing_problem, column_pool=current_node.column_pool, a_graph=current_node.a_graph)
         pricing_solver = ExactPricingSolver(current_node.a_graph,pricing_problem=pricing_problem)
         column_generation = ColumnGeneration(

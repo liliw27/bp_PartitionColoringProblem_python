@@ -1,4 +1,4 @@
-from typing import List
+from typing import Dict
 from model.a_graph import AuxiliaryGraph
 from bpc.branching.branching_decision import BranchingDecision
 
@@ -10,14 +10,14 @@ It maintains the dual costs from the master problem and handles branching decisi
 """
 
 class PricingProblem:
-    def __init__(self, auxiliary_graph: AuxiliaryGraph, name : str,dualcosts:List):
+    def __init__(self, auxiliary_graph: AuxiliaryGraph, name : str,dual:Dict):
         self.auxiliary_graph = auxiliary_graph
         self.name = name
-        self.dualcosts = dualcosts
+        self.dual = dual
     
-    def update_pricing_problem(self,dualcosts):
-        self.dualcosts = dualcosts
-        self.auxiliary_graph.update_weightf(dualcosts)
+    def update_pricing_problem(self,dual:Dict):
+        self.dual = dual
+        self.auxiliary_graph.update_weightf(self.dual)
 
     def branchingDecisionPerformed(self,branchingDecision:BranchingDecision):
         pass

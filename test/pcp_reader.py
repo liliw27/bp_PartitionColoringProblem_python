@@ -182,7 +182,10 @@ class PCPReader:
         
 
         for vertex_index in range(num_vertices):
-            vertex = Vertex()  # 自动生成ID
+            import random
+            random.seed(17)
+            end_time = random.randint(0, 100)
+            vertex = Vertex(end_time)  # 自动生成ID# TODO: 需要从文件中读取end_time
             vertices.append(vertex)
      
         

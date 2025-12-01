@@ -79,20 +79,20 @@ class AuxiliaryGraph:
         """
         return self.auxiliary_edges
     
-    def update_weightf(self, dual: List[float]):
+    def update_weightf(self, dual: Dict):
         """
         更新顶点权重
         
         根据主问题的对偶变量更新顶点权重，用于定价问题的目标函数。
-        普通顶点直接使用其分区对应的对偶值；合并顶点使用其包含
-        的所有原始顶点权重之和。
+        权重 = π_partition - μ_v * t_v（如果有 makespan 约束）
+        普通顶点直接计算；合并顶点使用其包含的所有原始顶点权重之和。
         
         Args:
-            dual: 主问题的对偶变量列表
+            dual: 主问题的对偶变量字典 {'partition': {...}, 'makespan': {...}}
         """
         # 更新普通顶点的权重
         for vertex in self.graph.vertices:
-            self.weight_v[vertex.id] = dual[vertex.associated_partition.id]
+            self.weight_v[vertex.id] = dual['partition'][vertex.associated_partition.id]-dual['makespan'][vertex.id]*vertex.end_time
             
         # 更新合并顶点的权重
         for vertex in self.merged_vertices_map.keys():
@@ -174,7 +174,8 @@ class AuxiliaryGraph:
             vertex_u: 第二个顶点
         """
         # 创建新的合并顶点
-        vertex_z = Vertex()
+        end_time=max(vertex_v.end_time, vertex_u.end_time)
+        vertex_z = Vertex(end_time)
         self.vertices_map[vertex_z.id] = vertex_z
         
         # 更新所有边，将涉及到这两个顶点的边都指向新顶点

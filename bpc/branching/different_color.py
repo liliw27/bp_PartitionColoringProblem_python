@@ -16,7 +16,7 @@ class DifferentColor(BranchingDecision):
         """使用需要强制不同颜色的一对顶点进行初始化。"""
         self.vertex_pair = vertex_pair
         print(f"DifferentColor(vertex_pair={self.vertex_pair[0].id}-{self.vertex_pair[1].id})")
-
+        
     def a_graph_update(self, a_graph: AuxiliaryGraph):
         """在辅助图中应用该约束。"""
         a_graph.different_color(self.vertex_pair[0], self.vertex_pair[1])
@@ -27,7 +27,7 @@ class DifferentColor(BranchingDecision):
         人工列将被保留，以维持主问题的可行性。
         """
         columns_to_remove = []
-
+        
         for column in column_pool.columns:
             if column.is_artificial_column:
                 continue

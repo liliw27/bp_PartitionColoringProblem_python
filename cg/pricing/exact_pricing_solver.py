@@ -28,7 +28,7 @@ class ExactPricingSolver:
         self.cons = {}
         self.pool_sol_num = 10
         self.build_model()
-        self.dual = pricing_problem.dualcosts
+        self.dual = pricing_problem.dual
         # 调试模式：设置环境变量 BPC_DEBUG=1 启用断言校验
         self.debug = bool(int(os.getenv("BPC_DEBUG", "0")))
 
@@ -119,7 +119,7 @@ class ExactPricingSolver:
             obj_val = self.model.PoolObjVal
 
             # 只考虑 reduced cost < 0 的解（等价于目标值充足大）
-            if obj_val < 1.0+1e-6:  # 考虑数值误差
+            if obj_val < 1e-6:  # 考虑数值误差
                 continue
 
             # 提取稳定集（值为1的节点）
@@ -144,20 +144,26 @@ class ExactPricingSolver:
         return columns
     def _update_dual(self):
         """从定价问题对象中同步对偶值。"""
-        self.dual = self.pricing_problem.dualcosts
+        self.dual = self.pricing_problem.dual
     def _calculate_reduced_cost(self, column: ColumnIndependentSet) -> float:
         """
         手动计算 reduced cost
-        :param column:
-        :return:
+        
+        reduced cost = 目标系数 - 分区对偶贡献 + makespan对偶贡献
+        对于 EV 问题：rc = 0 - Σπ_p + Σμ_v * t_v
         """
         dual_contrib = 0
         for v in column.vertex_list:
-            vertex=self.auxiliary_graph.vertices_map[v.id]
-            dual_contrib += self.dual[vertex.associated_partition.id]
-        rc = 1.0 - dual_contrib
-
-        # 根据数学模型计算 reduced cost
+            vertex = self.auxiliary_graph.vertices_map[v.id]
+            # 分区对偶贡献
+            partition_id = vertex.associated_partition.id
+            dual_contrib += self.dual['partition'].get(partition_id, 0.0)
+            # makespan 对偶贡献（如果有）
+            if vertex.id in self.dual.get('makespan', {}) and hasattr(vertex, 'end_time'):
+                dual_contrib -= self.dual['makespan'][vertex.id] * vertex.end_time
+        
+        # 列变量目标系数为 0，reduced cost = 0 - dual_contrib = -dual_contrib
+        rc = -dual_contrib
         return rc
 
     def _assert_reduced_cost_consistency(self, pool_obj_val: float, column: ColumnIndependentSet) -> None:
