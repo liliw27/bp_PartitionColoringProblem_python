@@ -19,11 +19,13 @@ from model.graph import Graph
 from model.vertex import Vertex
 from model.edge import Edge
 from model.partition import Partition
+import random
 
 # 添加项目根目录到Python路径
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
+
 
     
 
@@ -32,6 +34,7 @@ class PCPReader:
     """PCP算例文件读取器"""
     
     def __init__(self):
+        random.seed(17)
         """初始化读取器"""
         pass
     
@@ -182,8 +185,7 @@ class PCPReader:
         
 
         for vertex_index in range(num_vertices):
-            import random
-            random.seed(17)
+            
             end_time = random.randint(0, 100)
             vertex = Vertex(end_time)  # 自动生成ID# TODO: 需要从文件中读取end_time
             vertices.append(vertex)

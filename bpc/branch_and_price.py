@@ -2,7 +2,7 @@
 分支定价算法主类
 """
 import heapq
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Set
 from model.a_graph import AuxiliaryGraph
 from bpc.bpc_node import BPCNode
 from cg.column_generation import ColumnGeneration
@@ -293,6 +293,7 @@ class BranchAndPrice:
         # 创建空的列池作为根节点的初始状态
         a_graph = self._create_auxiliary_graph()
         root_column_pool=self._add_artificial_columns(a_graph)
+        self.build_greedy_initial_columns(a_graph,root_column_pool)
         return BPCNode(
             parent=None, 
             a_graph=a_graph, 
@@ -329,21 +330,119 @@ class BranchAndPrice:
             包含人工列的列池
         """
         root_column_pool = ColumnPool()
-        
-        for partition in self.graph.partitions:
-            # 为每个分区中的每个顶点创建单顶点人工列
-            vertex = partition.vertex_list[0]
-            
-            artificial_column = ColumnIndependentSet(
-                vertex_list=[vertex],
+
+        # 安全起见，将 charger_num 转为整数（外部应保证为整数）
+        charger_num = int(self.charger_num)
+
+        count = 0
+        artificial_columns: List[ColumnIndependentSet] = []
+
+        # 1. 先创建 charger_num 个“空”的人工列，每列代表一个充电桩
+        for _ in range(charger_num):
+            column = ColumnIndependentSet(
+                vertex_list=[],  # 顶点稍后再按轮分配进去
                 associated_pricing_problem="artificial",
                 is_artificial=True,
                 creator="artificial_initialization",
                 value=1000.0  # 高代价确保只在必要时使用
             )
-            root_column_pool.addColumn(artificial_column)
-        
+            artificial_columns.append(column)
+
+        # 2. 将每个分区挑选一个代表顶点，按轮分配到各个人工列中
+        while count < len(self.graph.partitions):
+            partition = self.graph.partitions[count]
+            if not partition.vertex_list:
+                count += 1
+                continue
+            column = artificial_columns[count % charger_num]
+            # 这里简单取该分区的第一个顶点作为代表
+            column.vertex_list.append(partition.vertex_list[0])
+            count += 1
+
+        # 3. 把所有人工列加入列池
+        for column in artificial_columns:
+            root_column_pool.addColumn(column)
         return root_column_pool
+
+    def build_greedy_initial_columns(self, a_graph: AuxiliaryGraph,root_column_pool: ColumnPool) :
+        """
+        使用一个简单的贪心图着色算法，构造一组“真实列”的初始解（可选）。
+        
+        思路：
+        - 把每个 partition 看成一辆车，每个顶点是该车的一个候选时段；
+        - 为每个 partition 选择一个代表顶点（这里用 end_time 最早的那个）；
+        - 对这些代表顶点做贪心着色：依次为每个顶点分配一个列（颜色），
+          保证同一列内任意两顶点之间无边（即是独立集），且不来自同一 partition；
+        - 每个颜色对应一个 `ColumnIndependentSet`，作为主问题的初始“真实列”。
+        
+        注意：
+        - 本函数不会自动被调用，仅作为一种可选的启发式初始解；
+        - 人工列 `_add_artificial_columns` 仍然保留，用于严格保证可行性。
+        """
+
+        # 1. 建立邻接表，便于快速判断冲突
+        #    注意：必须使用辅助图 a_graph，而不是原始图 self.graph，
+        #    因为 a_graph 中已经包含了分区内部的互斥边和分支产生的额外边。
+        adjacency: Dict[int, Set[int]] = {v_id: set() for v_id in a_graph.vertices_map.keys()}
+        for edge in a_graph.auxiliary_edges:
+            u_id = edge.source.id
+            v_id = edge.target.id
+            adjacency[u_id].add(v_id)
+            adjacency[v_id].add(u_id)
+
+        # 2. 为每个 partition 选一个代表顶点（end_time 最早）
+        representative_vertices: List = []
+        for partition in self.graph.partitions:
+            if not partition.vertex_list:
+                continue
+            rep_vertex = min(
+                partition.vertex_list,
+                key=lambda v: getattr(v, "end_time", 0.0),
+            )
+            representative_vertices.append(rep_vertex)
+
+        # 3. 贪心着色：为代表顶点分配列（颜色），保证列内顶点两两不相邻，且分区不同
+        columns: List[List] = []  # 每个元素是一个顶点列表，表示一个独立集列
+        columns_partitions: List[Set[int]] = []  # 跟踪每列中已使用的 partition id
+
+        for vertex in representative_vertices:
+            placed = False
+            part_id = vertex.associated_partition.id
+
+            # 尝试放入已有列
+            for col_idx, col_vertices in enumerate(columns):
+                # 同一列中不能有相同 partition
+                if part_id in columns_partitions[col_idx]:
+                    continue
+
+                # 检查与该列中所有顶点是否冲突
+                conflict = False
+                for other in col_vertices:
+                    if other.id in adjacency[vertex.id]:
+                        conflict = True
+                        break
+
+                if not conflict:
+                    col_vertices.append(vertex)
+                    columns_partitions[col_idx].add(part_id)
+                    placed = True
+                    break
+
+            # 若无法放入任何已有列，则创建一个新列
+            if not placed:
+                columns.append([vertex])
+                columns_partitions.append({part_id})
+
+        # 4. 把每个颜色（独立集）转换成列对象加入列池
+        for col_vertices in columns:
+            column = ColumnIndependentSet(
+                vertex_list=col_vertices,
+                associated_pricing_problem="greedy_initial",
+                is_artificial=False,
+                creator="greedy_initialization",
+                value=0.0,
+            )
+            root_column_pool.addColumn(column)
 
     
     def is_integer_solution(self, solution: Dict[ColumnIndependentSet, Any]) -> bool:

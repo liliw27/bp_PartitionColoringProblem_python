@@ -119,7 +119,7 @@ class ExactPricingSolver:
             obj_val = self.model.PoolObjVal
 
             # 只考虑 reduced cost < 0 的解（等价于目标值充足大）
-            rc=obj_val+self.dual.get('charger', 0.0)
+            rc=-obj_val-self.dual.get('charger', 0.0)
             if rc < 1e-6:  # 考虑数值误差
                 continue
 
@@ -151,7 +151,7 @@ class ExactPricingSolver:
         手动计算 reduced cost
         
         reduced cost = 目标系数 - 分区对偶贡献 + makespan对偶贡献 + 充电桩约束对偶贡献
-        对于 EV 问题：rc = 0 - Σπ_p + Σμ_v * t_v - λ
+        对于 EV 问题：rc = 0 - (Σπ_p + Σμ_v * t_v - λ)
         """
         dual_contrib = 0.0
 
@@ -168,7 +168,7 @@ class ExactPricingSolver:
                 dual_contrib -= self.dual['makespan'][vertex.id] * vertex.end_time
         
         # 列变量目标系数为 0，reduced cost = 0 - dual_contrib = -dual_contrib
-        rc = -dual_contrib
+        rc = dual_contrib
         return rc
 
     def _assert_reduced_cost_consistency(self, pool_obj_val: float, column: ColumnIndependentSet) -> None:
@@ -182,7 +182,7 @@ class ExactPricingSolver:
             return
         self._update_dual()
         manual_rc = self._calculate_reduced_cost(column)
-        diff = abs((1.0 - pool_obj_val) - manual_rc)
+        diff = abs(pool_obj_val - manual_rc)
         assert diff <= 1e-5, (
             f"Reduced cost 不一致: "
             f"子问题报告={pool_obj_val:.6f}, "

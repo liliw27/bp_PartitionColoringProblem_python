@@ -108,7 +108,7 @@ class MasterProblem:
         # 列变量目标系数为 0（目标由 T 承担）
         var = self._rmp.addVar(
             lb=0.0,
-            obj=0.0,
+            obj=column_independent_set.value,#人工列1000，非人工列0
             vtype=grb.GRB.CONTINUOUS,
             name=name,
             column=c,
