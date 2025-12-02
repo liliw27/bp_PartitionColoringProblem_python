@@ -119,7 +119,8 @@ class ExactPricingSolver:
             obj_val = self.model.PoolObjVal
 
             # 只考虑 reduced cost < 0 的解（等价于目标值充足大）
-            if obj_val < 1e-6:  # 考虑数值误差
+            rc=obj_val+self.dual.get('charger', 0.0)
+            if rc < 1e-6:  # 考虑数值误差
                 continue
 
             # 提取稳定集（值为1的节点）
@@ -149,10 +150,14 @@ class ExactPricingSolver:
         """
         手动计算 reduced cost
         
-        reduced cost = 目标系数 - 分区对偶贡献 + makespan对偶贡献
-        对于 EV 问题：rc = 0 - Σπ_p + Σμ_v * t_v
+        reduced cost = 目标系数 - 分区对偶贡献 + makespan对偶贡献 + 充电桩约束对偶贡献
+        对于 EV 问题：rc = 0 - Σπ_p + Σμ_v * t_v - λ
         """
-        dual_contrib = 0
+        dual_contrib = 0.0
+
+        # 全局充电桩数量约束对偶：每个列的系数为 1
+        charger_dual = self.dual.get('charger', 0.0)
+        dual_contrib += charger_dual
         for v in column.vertex_list:
             vertex = self.auxiliary_graph.vertices_map[v.id]
             # 分区对偶贡献

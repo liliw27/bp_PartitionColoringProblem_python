@@ -88,11 +88,18 @@ class AuxiliaryGraph:
         普通顶点直接计算；合并顶点使用其包含的所有原始顶点权重之和。
         
         Args:
-            dual: 主问题的对偶变量字典 {'partition': {...}, 'makespan': {...}}
+            dual: 主问题的对偶变量字典 {'partition': {...}, 'makespan': {...}, 'charger': λ}
         """
+        # 预取对偶字典，避免 KeyError
+        partition_duals = dual.get('partition', {})
+        makespan_duals = dual.get('makespan', {})
+
         # 更新普通顶点的权重
         for vertex in self.graph.vertices:
-            self.weight_v[vertex.id] = dual['partition'][vertex.associated_partition.id]-dual['makespan'][vertex.id]*vertex.end_time
+            pi = partition_duals.get(vertex.associated_partition.id, 0.0)
+            mu = makespan_duals.get(vertex.id, 0.0)
+            t_v = getattr(vertex, 'end_time', 0.0)
+            self.weight_v[vertex.id] = pi - mu * t_v
             
         # 更新合并顶点的权重
         for vertex in self.merged_vertices_map.keys():

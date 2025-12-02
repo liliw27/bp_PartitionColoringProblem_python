@@ -17,27 +17,37 @@ class MasterProblem:
     EV 充电调度扩展：
     - 新增 makespan 变量 T，目标为 min T；
     - 每个顶点 v 对应一个 makespan 约束：sum_{col: v in col} t_v * x_col - T <= 0。
+    - 充电桩数量限制约束：sum_{col} x_col <= charger_num
     """
     def __init__(
         self,
         graph: Graph,
+        charger_num: int,
         pricing_problem: PricingProblem,
         column_pool: ColumnPool,
         a_graph: AuxiliaryGraph,
     ):
         self.graph = graph
+        self.charger_num = charger_num
         self.pricing_problem = pricing_problem
         self.column_pool = column_pool
         self.a_graph = a_graph
         self._rmp = grb.Model("master")
         # key: 定价问题实例 → value: {列对象 → Gurobi变量}
         self.varMap = {}  # 存储定价问题到变量映射的字典
-        # 对偶变量统一结构：{'partition': {partition_id: dual}, 'makespan': {vertex_id: dual}}
-        self.dual = {'partition': {}, 'makespan': {}}
+        # 对偶变量统一结构：
+        # {
+        #   'partition': {partition_id: dual},
+        #   'makespan': {vertex_id: dual},
+        #   'charger': λ  # 充电桩数量约束的对偶
+        # }
+        self.dual = {'partition': {}, 'makespan': {}, 'charger': 0.0}
         self.each_partition_colored_once_constraint = dict()
         # makespan 相关
         self.T = None  # makespan 变量
         self.vertex_makespan_constraints = {}  # vertex_id → makespan 约束
+        # 充电桩数量约束：sum_col x_col <= charger_num
+        self.charger_capacity_constraint = None
         self.solution = None
         self.objective = 0.0
         self.buildModel()
@@ -62,6 +72,7 @@ class MasterProblem:
         通过 grb.Column 机制同时加入：
         1. 分区约束（系数 1）
         2. makespan 约束（系数 t_v = vertex.end_time）
+        3. 充电桩数量约束（系数 1）
         """
         name = f"column_{column_independent_set.columnid}"
 
@@ -90,6 +101,10 @@ class MasterProblem:
                         t_v = merged_vertex.end_time
                         c.addTerms(-t_v, makespan_constr)
 
+        # 充电桩数量约束：每个列变量在该约束中的系数为 1
+        if self.charger_capacity_constraint is not None:
+            c.addTerms(1.0, self.charger_capacity_constraint)
+
         # 列变量目标系数为 0（目标由 T 承担）
         var = self._rmp.addVar(
             lb=0.0,
@@ -111,6 +126,7 @@ class MasterProblem:
         1. 每个分区至少被染色一次的约束：sum_{col} a_{partition,col} * x_col >= 1
         2. 每个顶点的 makespan 约束：sum_{col: v in col}  T-t_v * x_col >= 0
            初始时左侧只有 -T，后续通过 grb.Column 机制加入 t_v * x_col 项。
+        3. 全局充电桩数量约束：sum_col x_col <= charger_num
         """
         partition_number = len(self.graph.partitions)
         # 构建每个partition被染色一次的约束
@@ -130,6 +146,14 @@ class MasterProblem:
                 # 初始：1*T >= 0，后续通过 Column 添加 (-t_v)*x_col 项
                 constr = self._rmp.addConstr(1.0 * self.T >= 0, name=name)
                 self.vertex_makespan_constraints[vertex.id] = constr
+
+        # 全局充电桩数量约束：sum_col x_col <= charger_num
+        # 初始时左侧为空，后续通过 Column 机制为每个列变量添加系数 1
+        name = "charger_capacity_constraint"
+        lhs = grb.quicksum([])
+        self.charger_capacity_constraint = self._rmp.addConstr(
+            lhs <= self.charger_num, name=name
+        )
 
     def solveMaster(self, time_end: int):
         """求解主问题并返回（解、对偶、目标值）。"""
@@ -206,7 +230,8 @@ class MasterProblem:
         
         self.dual = {
             'partition': {partition_id: π, ...},  # 分区约束对偶，用于定价问题顶点权重
-            'makespan': {vertex_id: μ, ...}       # makespan 约束对偶，用于定价问题时间惩罚
+            'makespan': {vertex_id: μ, ...},      # makespan 约束对偶，用于定价问题时间惩罚
+            'charger': λ                          # 充电桩数量约束的对偶
         }
         """
         # 分区约束对偶
@@ -218,8 +243,14 @@ class MasterProblem:
         makespan_duals = {}
         for vertex_id, constr in self.vertex_makespan_constraints.items():
             makespan_duals[vertex_id] = constr.Pi
+
+        # 充电桩数量约束对偶
+        charger_dual = 0.0
+        if self.charger_capacity_constraint is not None:
+            charger_dual = self.charger_capacity_constraint.Pi
         
         self.dual = {
             'partition': partition_duals,
-            'makespan': makespan_duals
+            'makespan': makespan_duals,
+            'charger': charger_dual,
         }

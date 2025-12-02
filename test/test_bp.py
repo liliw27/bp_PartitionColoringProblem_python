@@ -14,9 +14,11 @@ def test_branch_and_price():
     reader = PCPReader()
     graph = reader.read_pcp_file("data/Table2_random_instances/n60p5t2s3.pcp")
     print(f"成功读取图: {len(graph.vertices)}顶点, {len(graph.edges)}边, {len(graph.partitions)}分区")
-        
+    
+    charger_num=len(graph.partitions)/2 #Todo:从文件中读取
         # 创建分支定价算法对象
-    bp = BranchAndPrice(graph, time_limit=3600)
+    
+    bp = BranchAndPrice(graph,charger_num, time_limit=3600)
     result = bp.solve()
     return result
         

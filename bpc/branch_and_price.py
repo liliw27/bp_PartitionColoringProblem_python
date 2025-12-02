@@ -24,7 +24,7 @@ class BranchAndPrice:
     这样可以优先处理最有希望的节点，提高算法效率。
     """
     
-    def __init__(self, graph: Graph, time_limit: int):
+    def __init__(self, graph: Graph, charger_num:int,time_limit: int):
         """
         初始化分支定价算法
         
@@ -33,6 +33,7 @@ class BranchAndPrice:
             time_limit: 时间限制（秒）
         """
         self.graph = graph
+        self.charger_num = charger_num
         self.time_limit = time_limit
         
         # 使用最小堆作为优先队列，按objective_value排序
@@ -210,7 +211,7 @@ class BranchAndPrice:
         
         # 创建求解组件
         pricing_problem = PricingProblem(auxiliary_graph=current_node.a_graph, name="main_pricing", dual={})
-        master_problem = MasterProblem(graph=self.graph, pricing_problem=pricing_problem, column_pool=current_node.column_pool, a_graph=current_node.a_graph)
+        master_problem = MasterProblem(graph=self.graph, charger_num=self.charger_num,pricing_problem=pricing_problem, column_pool=current_node.column_pool, a_graph=current_node.a_graph)
         pricing_solver = ExactPricingSolver(current_node.a_graph,pricing_problem=pricing_problem)
         column_generation = ColumnGeneration(
             master_problem, 
