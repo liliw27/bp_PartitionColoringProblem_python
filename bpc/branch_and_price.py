@@ -137,6 +137,21 @@ class BranchAndPrice:
             print("分支定价算法完成!")
             print(f"{'='*50}")
             print(f"最优目标值: {stats['best_objective']:.6f}")
+            # INSERT_YOUR_CODE
+            if self.best_solution:
+                print("最优解列组成如下：")
+                for i, (col, value) in enumerate(self.best_solution.items()):
+                    vertex_ids = [v.id for v in col.vertex_list]
+                    if vertex_ids:
+                        try:
+                            max_endtime = max(getattr(v, "end_time", 0) for v in col.vertex_list)
+                        except Exception:
+                            max_endtime = None
+                    else:
+                        max_endtime = None
+                    print(f"  列 {i+1}: vertex_ids={vertex_ids}, max_endtime={max_endtime}")
+            else:
+                print("没有找到可行解")
             print(f"全局下界: {stats['global_lower_bound']:.6f}")
             print(f"优化间隙: {stats['gap']:.4%}")
             print(f"处理节点数: {stats['nodes_processed']}")
