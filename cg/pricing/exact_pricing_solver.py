@@ -94,6 +94,7 @@ class ExactPricingSolver:
         仅保留满足 reduced cost 条件的列；在调试模式下，断言校验子问题
         报告的 reduced cost 与手动计算一致。
         """
+        self._update_dual()
         # 设置目标函数
         self.set_objective()
 
@@ -119,7 +120,8 @@ class ExactPricingSolver:
             obj_val = self.model.PoolObjVal
 
             # 只考虑 reduced cost < 0 的解（等价于目标值充足大）
-            rc=-obj_val-self.dual.get('charger', 0.0)
+            rc=obj_val+self.dual.get('charger', 0.0)
+            # print(f"rc: {rc}")
             if rc < 1e-6:  # 考虑数值误差
                 continue
 
@@ -132,7 +134,7 @@ class ExactPricingSolver:
             # 创建列对象
             new_column = ColumnIndependentSet(
                 vertex_list=stable_set_list,
-                value=1,
+                value=0,
                 associated_pricing_problem=self.pricing_problem,
                 is_artificial=False,
                 creator="Exact Pricing Solver",
@@ -141,7 +143,7 @@ class ExactPricingSolver:
             columns.append(new_column)
 
             # 断言校验：将校验逻辑与主流程解耦
-            self._assert_reduced_cost_consistency(obj_val, new_column)
+            self._assert_reduced_cost_consistency(rc, new_column)
         return columns
     def _update_dual(self):
         """从定价问题对象中同步对偶值。"""
@@ -169,6 +171,7 @@ class ExactPricingSolver:
         
         # 列变量目标系数为 0，reduced cost = 0 - dual_contrib = -dual_contrib
         rc = dual_contrib
+        
         return rc
 
     def _assert_reduced_cost_consistency(self, pool_obj_val: float, column: ColumnIndependentSet) -> None:

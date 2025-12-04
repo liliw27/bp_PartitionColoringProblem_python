@@ -19,6 +19,7 @@ from model.graph import Graph
 from model.vertex import Vertex
 from model.edge import Edge
 from model.partition import Partition
+from model.instance import Instance
 import random
 
 # 添加项目根目录到Python路径
@@ -126,6 +127,22 @@ class PCPReader:
         print(f"  成功读取: {len(vertices)}个顶点, {len(edges)}条边, {len(partitions)}个分区")
         
         return Graph(edges=edges, vertices=vertices, partitions=partitions)
+
+
+def read_pcp_instance(file_path: str, charger_num: int) -> Instance:
+    """
+    读取 PCP 文件并构造一个 Instance（包含 graph 和 charger_num）。
+
+    注意：
+    - 这里不再根据分区数“猜测” charger_num；
+    - charger_num 必须由算例本身或调用者显式给出（例如来自 EV JSON），
+      以保证算例的可行性由数据而不是代码默认值来决定。
+    """
+    reader = PCPReader()
+    graph = reader.read_pcp_file(file_path)
+    name = os.path.basename(file_path)
+    return Instance(graph=graph, charger_num=charger_num, name=name)
+
     
     
     
@@ -270,17 +287,4 @@ class PCPReader:
         
         print("  数据验证通过")
 
-
-def read_pcp_instance(file_path: str) -> Graph:
-    """
-    便捷函数：读取PCP实例文件
-    
-    Args:
-        file_path: PCP文件路径
-        
-    Returns:
-        Graph对象
-    """
-    reader = PCPReader()
-    return reader.read_pcp_file(file_path)
 

@@ -59,6 +59,7 @@ class ColumnGeneration:
                 self.column_pool.addColumn(column)
             foundNewColumn = len(new_columns) > 0
         self.solution = self.master.solution
+        # print(f"Column Generation Iteration {self.iteration} completed")
         return self.solution,self.masterObjective
     
     def check_termination(self):
