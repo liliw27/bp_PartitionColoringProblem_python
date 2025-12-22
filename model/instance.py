@@ -18,11 +18,11 @@ from model.graph import Graph
 @dataclass
 class Instance:
     """统一封装一个 PCP / EV 算例。"""
-
-    graph: Graph
-    charger_num: int
-
-    name: Optional[str] = None
+    
+    def __init__(self, graph: Graph, charger_num: int, name: Optional[str] = None):
+        self.graph = graph
+        self.charger_num = charger_num
+        self.name = name
 
     def __str__(self) -> str:
         return (
